@@ -1,0 +1,6 @@
+schema_version: 1.0
+domain: Customer Support Ticket Triage
+pydantic_models:
+  observation: models.Observation
+  action: models.Action
+  reward: models.Reward
