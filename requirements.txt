@@ -3,3 +3,5 @@ pydantic
 openai
 fastapi
 uvicorn
+gradio
+requests

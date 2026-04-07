@@ -1,5 +1,5 @@
 schema_version: 1.0
-domain: Customer Support Ticket Triage
+domain: LifeLoop
 pydantic_models:
   observation: models.Observation
   action: models.Action

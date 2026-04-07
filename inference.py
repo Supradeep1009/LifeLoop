@@ -6,7 +6,7 @@ def main():
     api_base_url = os.environ.get("API_BASE_URL", "http://localhost:7860/v1")
     model_name = os.environ.get("MODEL_NAME", "gpt-4")
     hf_token = os.environ.get("HF_TOKEN", "")
-    local_image_name = os.environ.get("LOCAL_IMAGE_NAME", "customer-support-env")
+    local_image_name = os.environ.get("LOCAL_IMAGE_NAME", "lifeloop-env")
     
     # Basic OpenAI setup for inference if the agent relies on an LLM.
     # In full implementation, this uses the base_url pointing to either the judge proxy or local host.

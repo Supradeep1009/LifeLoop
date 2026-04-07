@@ -6,9 +6,9 @@ colorTo: indigo
 sdk: docker
 pinned: false
 ---
-# Customer Support Triage AI Agent Environment
+# LifeLoop
 
-A complete, reproducible `OpenEnv` environment centered around **Customer Support Ticket Triage**, designed for the Meta Hackathon Task.
+A complete, reproducible `OpenEnv` environment centered around **LifeLoop**, designed for the Meta Hackathon Task.
 
 ## Overview
 This environment exposes an API mimicking a customer support queue. The agent's goal is to read tickets and appropriately route, reply to, or close them based on their content.

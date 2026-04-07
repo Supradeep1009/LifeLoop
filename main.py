@@ -6,7 +6,7 @@ from typing import Any, Dict
 from models import Observation, Action, Reward
 from tasks import get_task
 
-app = FastAPI()
+app = FastAPI(title="LifeLoop")
 
 # In-memory storage for active environments/sessions
 sessions = {}
@@ -14,7 +14,7 @@ sessions = {}
 @app.get("/")
 def read_root():
     return {
-        "message": "Welcome to the Customer Support Triage AI Agent Environment!",
+        "message": "Welcome to LifeLoop!",
         "docs_url": "/docs",
         "health_check": "/health"
     }
