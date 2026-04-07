@@ -1,38 +1,49 @@
 ---
 title: LifeLoop
-emoji: 🌍
-colorFrom: blue
+emoji: 🎫
+colorFrom: violet
 colorTo: indigo
 sdk: docker
 pinned: false
 ---
-# LifeLoop
+# LifeLoop — Customer Support Triage Demo
 
-A complete, reproducible `OpenEnv` environment centered around **LifeLoop**, designed for the Meta Hackathon Task.
+An interactive **AI agent evaluation environment** for Customer Support Triage, built for the **Meta Hackathon** using the [OpenEnv](https://github.com/openenv) framework.
 
 ## Overview
-This environment exposes an API mimicking a customer support queue. The agent's goal is to read tickets and appropriately route, reply to, or close them based on their content.
+LifeLoop simulates a customer support queue. The goal is to triage tickets by reading them and then routing, replying to, or closing each one correctly to maximise the reward score.
 
-## Setup Local Environment
+Three tasks of increasing difficulty are included:
+- **Task 0 (Easy)** – Single password-reset ticket → route to IT
+- **Task 1 (Medium)** – Angry refund request → reply with apology + "refund", then close
+- **Task 2 (Hard)** – Three mixed tickets → route/close each correctly
+
+## Running Locally
 
 ```bash
 # Install requirements
 pip install -r requirements.txt
 
-# Start the environment API via FastAPI
-uvicorn main:app --host 0.0.0.0 --port 7860
+# Launch the Gradio demo (self-contained, no separate server needed)
+python gradio_app.py
 ```
 
-## Running the Agent Evaluator
-Run the provided inference script which will interact with the environment and output standard formatted STDOUT:
+The app will be available at `http://localhost:7860`.
+
+## Running the Agent Evaluator (optional)
 
 ```bash
+# Start FastAPI backend separately
+uvicorn main:app --host 0.0.0.0 --port 7860
+
+# In another terminal
 export API_BASE_URL="http://localhost:7860/v1"
 python inference.py
 ```
 
-## Structure
-- `models.py`: Pydantic schemes for the state and tool definitions.
-- `tasks.py`: Implementation of 3 tasks with increasing difficulty (Easy, Medium, Hard).
-- `main.py`: FastAPI server bridging to the tasks.
-- `inference.py`: Baseline agent code interacting with the `OpenAI` client.
+## Project Structure
+- `gradio_app.py`: Self-contained Gradio demo (used by Hugging Face Spaces).
+- `models.py`: Pydantic schemas for observations, actions, and rewards.
+- `tasks.py`: Three tasks with increasing difficulty.
+- `main.py`: FastAPI server (for programmatic / agent access).
+- `inference.py`: Baseline agent using the OpenAI client.

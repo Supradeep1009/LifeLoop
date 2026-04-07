@@ -7,4 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Hugging Face Spaces expects the app to listen on port 7860
+EXPOSE 7860
+ENV GRADIO_SERVER_NAME=0.0.0.0
+ENV GRADIO_SERVER_PORT=7860
+
+CMD ["python", "gradio_app.py"]
