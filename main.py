@@ -13,21 +13,17 @@ app = FastAPI(title="LifeLoop")
 # In-memory storage for active environments/sessions
 sessions = {}
 
-# --- Environment API (v1) ---
-v1_router = APIRouter(prefix="/v1")
+# --- Environment API ---
+api_router = APIRouter()
 
 class ResetRequest(BaseModel):
-    task_id: int
+    task_id: int = 0
 
 class StepRequest(BaseModel):
     session_id: str
     action: Dict[str, Any]
 
-@v1_router.get("/")
-def v1_root():
-    return {"message": "LifeLoop Environment API v1"}
-
-@v1_router.post("/reset")
+@api_router.post("/reset")
 def reset_env(request: ResetRequest):
     session_id = str(uuid.uuid4())
     try:
@@ -43,7 +39,7 @@ def reset_env(request: ResetRequest):
         "observation": obs.dict()
     }
 
-@v1_router.post("/step")
+@api_router.post("/step")
 def step_env(request: StepRequest):
     if request.session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -82,7 +78,7 @@ def step_env(request: StepRequest):
         "info": info
     }
 
-@v1_router.get("/models")
+@api_router.get("/models")
 def list_models():
     """Optional but often checked by OpenAI-compatible evaluators."""
     return {
@@ -92,12 +88,16 @@ def list_models():
         ]
     }
 
-app.include_router(v1_router)
-
-# --- Gradio UI ---
-# Mount the Gradio app to the root
-app = gr.mount_gradio_app(app, demo, path="/")
-
-@app.get("/health")
+@api_router.get("/health")
 def health_check():
     return {"status": "ok"}
+
+app.include_router(api_router)
+app.include_router(api_router, prefix="/v1")
+
+# --- Gradio UI ---
+# Mount Gradio at /ui to keep API routes accessible at root
+# (mounting at / would hijack /reset, /step, etc.)
+app = gr.mount_gradio_app(app, demo, path="/ui")
+
+# Health check is now in api_router included above
