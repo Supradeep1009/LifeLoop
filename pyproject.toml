@@ -1,0 +1,17 @@
+[project]
+name = "LifeLoop"
+version = "0.1.0"
+description = "An AI agent evaluation environment for Customer Support Triage built on the OpenEnv framework"
+dependencies = [
+    "openenv-core>=0.2.1",
+    "pydantic",
+    "fastapi",
+    "uvicorn",
+    "gradio",
+    "requests",
+    "openai",
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
