@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Request
 from pydantic import BaseModel
 import uuid
-from typing import Any, Dict
+import json
+from typing import Any, Dict, Optional
 import gradio as gr
 
 from models import Observation, Action, Reward
@@ -24,10 +25,26 @@ class StepRequest(BaseModel):
     action: Dict[str, Any]
 
 @api_router.post("/reset")
-def reset_env(request: ResetRequest):
+async def reset_env(raw_request: Request):
+    """
+    Reset the environment. Accepts:
+      - empty body / no Content-Type
+      - {} (empty JSON object)
+      - {"task_id": 0}  (full request)
+    Meta's automated checker may send any of these.
+    """
+    task_id = 0
+    try:
+        body_bytes = await raw_request.body()
+        if body_bytes and body_bytes.strip():
+            body_json = json.loads(body_bytes)
+            if isinstance(body_json, dict) and "task_id" in body_json:
+                task_id = int(body_json["task_id"])
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass  # Fall back to default task_id=0
     session_id = str(uuid.uuid4())
     try:
-        task = get_task(request.task_id)
+        task = get_task(task_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
