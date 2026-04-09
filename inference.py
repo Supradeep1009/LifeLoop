@@ -1,57 +1,155 @@
+"""
+LifeLoop – Inference Agent
+Runs the LifeLoop environment by calling the LLM via the hackathon's LiteLLM proxy.
+
+Required env vars (injected by the hackathon validator):
+  API_BASE_URL  – LiteLLM proxy base URL
+  API_KEY       – API key for the proxy
+  MODEL_NAME    – (optional) model to use, defaults to "gpt-4o-mini"
+"""
+
 import os
 import json
+import requests
 from openai import OpenAI
 
-def main():
-    api_base_url = os.environ.get("API_BASE_URL", "http://localhost:7860/v1")
-    model_name = os.environ.get("MODEL_NAME", "gpt-4")
-    hf_token = os.environ.get("HF_TOKEN", "")
-    local_image_name = os.environ.get("LOCAL_IMAGE_NAME", "lifeloop-env")
-    
-    # Basic OpenAI setup for inference if the agent relies on an LLM.
-    # In full implementation, this uses the base_url pointing to either the judge proxy or local host.
-    client = OpenAI(
-        base_url=api_base_url,
-        api_key=hf_token or "sk-test"
+# ── Configuration ────────────────────────────────────────────────────────────
+API_BASE_URL = os.environ["API_BASE_URL"]          # required – hackathon injects this
+API_KEY      = os.environ["API_KEY"]               # required – hackathon injects this
+MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+# Base URL of the LifeLoop environment server (the FastAPI app on HF Space)
+ENV_BASE_URL = os.environ.get("ENV_BASE_URL", "http://localhost:7860")
+
+# ── OpenAI client pointing at the proxy ──────────────────────────────────────
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=API_KEY,
+)
+
+# ── System prompt ────────────────────────────────────────────────────────────
+SYSTEM_PROMPT = """You are a customer-support triage agent.
+You will be given the current observation of a ticket queue and must decide the
+single best next action to take.
+
+Available actions (respond with ONLY valid JSON, no markdown, no explanation):
+
+1. Read a ticket:
+   {"action_type": "read", "ticket_id": "<id>"}
+
+2. Route a ticket to a department:
+   {"action_type": "route", "ticket_id": "<id>", "department": "<dept>"}
+   Valid departments: IT, Billing, General, Technical
+
+3. Reply to a ticket:
+   {"action_type": "reply", "ticket_id": "<id>", "message": "<your message>"}
+
+4. Close a ticket:
+   {"action_type": "close", "ticket_id": "<id>"}
+
+Strategy:
+- First READ a ticket to learn its content.
+- Then decide: route it to a department OR reply (apologize + mention refund
+  where relevant) and close it.
+- Aim to handle all unhandled tickets.
+"""
+
+# ── Environment helpers ───────────────────────────────────────────────────────
+
+def env_reset(task_id: int = 0) -> dict:
+    """POST /reset to start a new episode."""
+    r = requests.post(
+        f"{ENV_BASE_URL}/reset",
+        json={"task_id": task_id},
+        timeout=30,
     )
-    
-    # OpenEnv strict evaluation formatting
-    # Required to pass the Regex judge
+    r.raise_for_status()
+    return r.json()
+
+
+def env_step(session_id: str, action: dict) -> dict:
+    """POST /step to apply an action."""
+    r = requests.post(
+        f"{ENV_BASE_URL}/step",
+        json={"session_id": session_id, "action": action},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+# ── LLM decision ─────────────────────────────────────────────────────────────
+
+def choose_action(obs: dict, history: list) -> dict:
+    """Ask the LLM (via proxy) for the next action given the current observation."""
+    user_msg = (
+        f"Current observation:\n{json.dumps(obs, indent=2)}\n\n"
+        "What is your next action? Reply with a single JSON object only."
+    )
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_msg})
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.0,
+        max_tokens=256,
+    )
+
+    raw = response.choices[0].message.content.strip()
+
+    # Strip markdown fences if the model wraps with ```json ... ```
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    action = json.loads(raw)
+    # Append to history so the model keeps context
+    history.append({"role": "user", "content": user_msg})
+    history.append({"role": "assistant", "content": raw})
+    return action
+
+
+# ── Main agent loop ───────────────────────────────────────────────────────────
+
+def run_episode(task_id: int = 0, max_steps: int = 20):
+    """Reset the environment and run one full episode."""
+    reset_data = env_reset(task_id)
+    session_id = reset_data["session_id"]
+    obs        = reset_data["observation"]
+
     print("[START]")
-    
-    # ---------------------------------------------------------
-    # Agent Loop Simulation
-    # The agent gets Observations, prompts the model, and yields Actions
-    # ---------------------------------------------------------
-    
-    # Step 1
-    obs_1 = {
-        "current_ticket_id": None, 
-        "ticket_details": None, 
-        "unhandled_tickets_count": 1, 
-        "departments": ["IT", "Billing", "General", "Technical"]
-    }
-    action_1 = {
-        "action_type": "read",
-        "ticket_id": "T001"
-    }
-    print(f"[STEP] Observation: {json.dumps(obs_1)} -> Action: {json.dumps(action_1)}")
-    
-    # Step 2
-    obs_2 = {
-        "current_ticket_id": "T001",
-        "ticket_details": "I forgot my password, can you please reset it?",
-        "unhandled_tickets_count": 1,
-        "departments": ["IT", "Billing", "General", "Technical"]
-    }
-    action_2 = {
-        "action_type": "route",
-        "ticket_id": "T001",
-        "department": "IT"
-    }
-    print(f"[STEP] Observation: {json.dumps(obs_2)} -> Action: {json.dumps(action_2)}")
-    
+
+    history = []
+    for step in range(max_steps):
+        action = choose_action(obs, history)
+        print(f"[STEP] Observation: {json.dumps(obs)} -> Action: {json.dumps(action)}")
+
+        result = env_step(session_id, action)
+        obs    = result["observation"]
+        reward = result["reward"]
+        done   = result["done"]
+
+        if done:
+            print(f"[STEP] Observation: {json.dumps(obs)} -> Action: done")
+            break
+
     print("[END]")
+    return reward
+
+
+def main():
+    # Run all three tasks so the validator sees LLM calls for a variety of inputs
+    for task_id in range(3):
+        try:
+            run_episode(task_id=task_id)
+        except Exception as e:
+            # Don't crash the whole run if one task fails
+            print(f"[ERROR] Task {task_id} failed: {e}")
+
 
 if __name__ == "__main__":
     main()
