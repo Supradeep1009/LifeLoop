@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import uuid
 import json
@@ -111,6 +112,11 @@ def health_check():
 
 app.include_router(api_router)
 app.include_router(api_router, prefix="/v1")
+
+@app.get("/")
+def root():
+    """Redirect root to the Gradio UI."""
+    return RedirectResponse(url="/ui")
 
 # --- Gradio UI ---
 # Mount Gradio at /ui to keep API routes accessible at root
