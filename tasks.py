@@ -1,5 +1,9 @@
 from models import Observation, Reward
 
+def _clamp(score: float) -> float:
+    """Clamp score to strictly (0, 1) as required by the validator."""
+    return max(0.001, min(0.999, score))
+
 class BaseTask:
     def __init__(self):
         self.tickets = {}
@@ -40,9 +44,9 @@ class Task0(BaseTask):
                 self.ticket_states["T001"] = "routed"
         
         # Calculate Reward
-        score = 1.0 if self.ticket_states.get("T001") == "routed" else 0.0
-        done = score == 1.0
-        return self.get_observation(), Reward(score=score), done, {}
+        raw_score = 1.0 if self.ticket_states.get("T001") == "routed" else 0.0
+        done = raw_score == 1.0
+        return self.get_observation(), Reward(score=_clamp(raw_score)), done, {}
 
 class Task1(BaseTask):
     # Medium: Requesting a refund. Reply with an apology and 'refund', then close.
@@ -67,14 +71,14 @@ class Task1(BaseTask):
             self.replied_properly = False # Penalty for routing instead
                 
         # Calculate Reward
-        score = 0.0
+        raw_score = 0.0
         if self.replied_properly:
-            score += 0.5
+            raw_score += 0.5
         if self.ticket_states.get("T002") == "closed":
-            score += 0.5
+            raw_score += 0.5
             
         done = self.ticket_states.get("T002") == "closed"
-        return self.get_observation(), Reward(score=score), done, {}
+        return self.get_observation(), Reward(score=_clamp(raw_score)), done, {}
 
 class Task2(BaseTask):
     # Hard: Mix of 3 tickets
@@ -106,9 +110,9 @@ class Task2(BaseTask):
                 
         # Calculate Reward
         handled = sum(1 for v in self.correct_steps.values() if v)
-        score = handled / 3.0
+        raw_score = handled / 3.0
         done = handled == 3
-        return self.get_observation(), Reward(score=score), done, {}
+        return self.get_observation(), Reward(score=_clamp(raw_score)), done, {}
 
 def get_task(task_id: int):
     if task_id == 0:
