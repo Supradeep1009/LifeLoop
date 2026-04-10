@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Request
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import uuid
 import json
@@ -110,17 +109,11 @@ def list_models():
 def health_check():
     return {"status": "ok"}
 
+# Register API routes BEFORE mounting Gradio so they take precedence
 app.include_router(api_router)
 app.include_router(api_router, prefix="/v1")
 
-@app.get("/")
-def root():
-    """Redirect root to the Gradio UI."""
-    return RedirectResponse(url="/ui")
-
 # --- Gradio UI ---
-# Mount Gradio at /ui to keep API routes accessible at root
-# (mounting at / would hijack /reset, /step, etc.)
-app = gr.mount_gradio_app(app, demo, path="/ui")
-
-# Health check is now in api_router included above
+# Mount at root so HF Spaces iframe loads correctly (no redirect needed)
+# API routes above are matched first by FastAPI before Gradio's catch-all
+app = gr.mount_gradio_app(app, demo, path="/")
